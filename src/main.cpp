@@ -97,8 +97,11 @@ int main(int argc, char *argv[])
 
     // Add self-loops to the adjacency matrix
     // A = A + I (add(sparse, dense) is not implenented, so use add(dense, sparse) instead)
-    auto I = torch::eye(n);
+    auto I = torch::eye(n).to_sparse();
     A = I + A;
+
+    // Check if A is sparse
+    std::cout << "Is A sparse? " << A.is_sparse() << std::endl;
 
     std::cout << "Tensors created!" << std::endl;
 
