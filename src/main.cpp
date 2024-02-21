@@ -1,4 +1,4 @@
-#include <torch/torch.h>
+#include <ATen/ATen.h>
 #include <fast_matrix_market/fast_matrix_market.hpp>
 #include <iostream>
 #include <fstream>
@@ -14,7 +14,7 @@ namespace fmm = fast_matrix_market;
  * @param A Adjacency matrix, shape (n, n)
  * @return Output features, shape (n, d_out)
  */
-torch::Tensor forward_pass(torch::Tensor &X, torch::Tensor &W, torch::Tensor &A)
+at::Tensor forward_pass(at::Tensor &X, at::Tensor &W, at::Tensor &A)
 {
     // Message aggregation Z = A @ X, Z has shape (n, d_in)
     auto Z = A.mm(X);
@@ -37,7 +37,7 @@ torch::Tensor forward_pass(torch::Tensor &X, torch::Tensor &W, torch::Tensor &A)
  * @param dL_dH Gradient of the loss with respect to the output features, shape (n, d_out)
  * @return Gradient of the loss with respect to the input features, shape (n, d_in)
  */
-torch::Tensor compute_grad(torch::Tensor &X, torch::Tensor &W, torch::Tensor &A, torch::Tensor dL_dH)
+at::Tensor compute_grad(at::Tensor &X, at::Tensor &W, at::Tensor &A, at::Tensor dL_dH)
 {
     // Compute the gradient of the loss with respect to the weights
     auto grad_intermediate = A.t().mm(dL_dH); // has shape (n, d_out)
@@ -51,7 +51,7 @@ torch::Tensor compute_grad(torch::Tensor &X, torch::Tensor &W, torch::Tensor &A,
  * @param dL_dW Gradient of the loss with respect to the weights, shape (d_out, d_in)
  * @param learning_rate Learning rate
  */
-void update_weights(torch::Tensor &W, torch::Tensor &dL_dW, double learning_rate)
+void update_weights(at::Tensor &W, at::Tensor &dL_dW, double learning_rate)
 {
     W -= learning_rate * dL_dW;
 }
@@ -84,20 +84,19 @@ int main(int argc, char *argv[])
 
     // Create random feature vectors
     // Feature tensor X has shape (n, d_in)
-    auto X = torch::randn({n, d_in}, torch::kFloat64);
+    auto X = at::randn({n, d_in}, at::kDouble);
 
     // Create random weights
     // Weight tensor W has shape (d_in, d_out)
-    auto W = torch::randn({d_out, d_in}, torch::kFloat64);
+    auto W = at::randn({d_out, d_in}, at::kDouble);
 
     // Create a adjacency matrix
-    auto indices = torch::from_blob(concatenated_indices.data(), {nnz, 2}, torch::kInt64);
-    auto values = torch::from_blob(coo_matrix.vals.data(), {nnz}, torch::kFloat64);
-    auto A = torch::sparse_coo_tensor(indices.t(), values, {coo_matrix.nrows, coo_matrix.ncols});
+    auto indices = at::from_blob(concatenated_indices.data(), {nnz, 2}, at::kLong);
+    auto values = at::from_blob(coo_matrix.vals.data(), {nnz}, at::kDouble);
+    auto A = at::sparse_coo_tensor(indices.t(), values, {coo_matrix.nrows, coo_matrix.ncols});
 
     // Add self-loops to the adjacency matrix
-    // A = A + I (add(sparse, dense) is not implenented, so use add(dense, sparse) instead)
-    auto I = torch::eye(n).to_sparse();
+    auto I = at::eye(n).to_sparse();
     A = I + A;
 
     // Check if A is sparse
@@ -110,7 +109,7 @@ int main(int argc, char *argv[])
     std::cout << "Forward pass done!" << std::endl;
 
     // Backward pass
-    auto dL_dH = torch::randn({n, d_out}, torch::kFloat64); // Dummy gradient of the loss with respect to the output features
+    auto dL_dH = at::randn({n, d_out}, at::kDouble); // Dummy gradient of the loss with respect to the output features
     auto dL_dW = compute_grad(X, W, A, dL_dH);
 
     std::cout << "Backward pass done!" << std::endl;
